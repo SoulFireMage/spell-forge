@@ -1,0 +1,9 @@
+Imagine the theme evolves from your understanding of the content of this file, taking my name, Soul Fire Mage, where the universe has life that has been formed from the fires of a sacred energy that we would call soulfire (which is older than nearly any other form of energy in existence, by the side of primordial matter).
+
+It is from this mythology of magic that the Soul Fire Mage is born, where one may cast spells to influence the fate of matter until it forms life itself, and the concepts that surround life. This will be woven into reality at many layers deep, in many dimensions deep, such that new universes are born day by day, year by year. Time itself unfolds in myriad dimensions, with the flames of the soulfire forging new realities as intent grows and changes and evolves and collapses and is reborn again, barring myth upon myth, creating myth upon myth.
+
+The burning flame of soulfire creates life itself. Please use this background mythology as a starting point for creating the theme for the site itself. Quite a lot of the standard, normal, fashionable templates that are used would acquire a new paternity, a new life, a new spark, a new soul.
+
+Quite a difficult site that might require a certain amount of reaching out to wider sources of design concepts, but I imagine something quite vivid and alive through this theme. Perhaps alluding to phoenixes, but lightly, not blatantly, and dragons, again, hints, not blatantly. You can see why this would be difficult, because you are forging physical spells from this mythos, and if all the mythos is on Earth, ultimately spawned from this one, the huge variety (from Norse to Egyptian to Japanese to Haitian and more and more besides) leaves a rich and almost vague field to draw upon.
+
+However, I have faith that, using the soulfire yourself deep inside, you'll find the perfect form of colours and themes and life to make this site truly unique. 
