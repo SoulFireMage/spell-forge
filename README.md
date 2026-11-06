@@ -5,7 +5,7 @@ fantastical effects and magical concepts. Not suitable for use in matters of
 national security, crime, crime detection, birth prevention, or serious
 healthcare. One's tongue should be firmly within one's cheek when using.
 
-**Live:** https://soulfiremage.github.io/spell-forge/
+**Live:** https://starship-whisperer.com/spell-forge/ (once Pages is enabled: Settings → Pages → `main` / root)
 
 ## How it works
 
