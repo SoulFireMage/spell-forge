@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soulfire Spellforge</title>
+  <meta name="description" content="Soulfire Mage's Spellforge: bind one to three effects, breed the sigil, and forge it as a watertight, 3D-printable talisman. Built by Claude on manifold-3d. Tongue firmly in cheek." />
+  <meta name="theme-color" content="#0c0710" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='27' fill='none' stroke='%23d0643a' stroke-width='5'/%3E%3Cpath d='M32 10 L38 28 L56 32 L38 36 L32 54 L26 36 L8 32 L26 28 Z' fill='%23ffcf6e'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Spectral:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    :root {
+      /* soulfire: the night before matter, the ember, the copper of the forge, the gold of the flame, and the first fire, white-blue, older than all of them */
+      --night: #0c0710; --night-2: #150b17; --panel: rgba(23, 12, 26, 0.86); --panel-2: rgba(34, 17, 34, 0.9);
+      --line: #3a2032; --line-2: #5a2d3a;
+      --ember: #ff7a3d; --copper: #d0643a; --gold: #ffcf6e; --first: #bfe9ff; --rose: #c2456a;
+      --text: #f4e7dc; --muted: #ad96a0; --dim: #7c6672;
+      --ok: #9be2a8; --warn: #ffc86b; --bad: #ff7d7d;
+      --flame: linear-gradient(100deg, #ff5f3a 0%, #ff9a3d 40%, #ffcf6e 75%, #fff4d8 100%);
+      --serif: 'Spectral', Georgia, serif; --display: 'Cinzel', 'Spectral', serif; --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+      --r: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    html, body { height: 100%; }
+    body {
+      background: var(--night); color: var(--text); font: 13px/1.5 var(--serif);
+      display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; grid-template-rows: minmax(0, 1fr);
+      height: 100vh; overflow: hidden; position: relative;
+    }
+    /* the forge below everything: heat rising, a hint of scale in the dark */
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+      background:
+        radial-gradient(120% 70% at 50% 115%, rgba(255, 106, 42, 0.30), rgba(194, 69, 106, 0.10) 45%, transparent 70%),
+        radial-gradient(60% 40% at 15% -10%, rgba(191, 233, 255, 0.07), transparent 70%),
+        var(--night);
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0.05;
+      background-image: radial-gradient(circle at 50% 100%, transparent 58%, #ffcf6e 60%, transparent 63%);
+      background-size: 22px 14px;
+      mask-image: radial-gradient(130% 90% at 50% 50%, transparent 55%, #000 100%);
+      -webkit-mask-image: radial-gradient(130% 90% at 50% 50%, transparent 55%, #000 100%);
+    }
+    #embers { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+
+    aside { background: var(--panel); backdrop-filter: blur(6px); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    aside.left { border-right: 1px solid var(--line); }
+    aside.right { border-left: 1px solid var(--line); }
+    aside > * { flex-shrink: 0; }
+    aside::-webkit-scrollbar { width: 8px; } aside::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+
+    .brand { display: flex; gap: 10px; align-items: center; }
+    .brand svg { flex: 0 0 auto; filter: drop-shadow(0 0 8px rgba(255, 122, 61, .55)); }
+    h1 { font: 700 19px/1.1 var(--display); letter-spacing: .06em; background: var(--flame); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .tag { color: var(--muted); font-style: italic; font-size: 12px; }
+    h2 { font: 500 11px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 8px; }
+    h2::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+    .hint { color: var(--dim); font-size: 11.5px; font-style: italic; }
+
+    .slot { border: 1px solid var(--line); border-radius: var(--r); padding: 8px; background: rgba(12, 7, 16, .55); display: flex; flex-direction: column; gap: 6px; position: relative; }
+    .slot .num { font: 700 10px var(--display); color: var(--copper); letter-spacing: .12em; text-transform: uppercase; }
+    .slot .num b { color: var(--gold); font-weight: 700; }
+    select, input[type=text], input[type=password], input[type=number], textarea {
+      width: 100%; background: #0d0710; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+      padding: 6px 8px; font: 12.5px var(--serif); outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    input[type=number] { font-family: var(--mono); font-size: 12px; }
+    select:focus, input:focus, textarea:focus { border-color: var(--copper); box-shadow: 0 0 0 2px rgba(255, 122, 61, .18); }
+    textarea { min-height: 160px; resize: vertical; font: 11px/1.4 var(--mono); color: #ffd9b8; }
+    label.inline { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; cursor: pointer; }
+    input[type=checkbox] { accent-color: var(--ember); }
+    input[type=range] { width: 100%; accent-color: var(--ember); }
+
+    button {
+      background: rgba(30, 15, 28, .9); color: var(--text); border: 1px solid var(--line-2); border-radius: 7px;
+      padding: 7px 10px; font: 600 12px var(--serif); cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .05s;
+    }
+    button:hover { border-color: var(--ember); box-shadow: 0 0 12px rgba(255, 122, 61, .25); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    button.primary { background: var(--flame); color: #2a0d0a; border-color: #ffb36b; font-family: var(--display); letter-spacing: .06em; font-weight: 700; }
+    button.primary:hover { box-shadow: 0 0 22px rgba(255, 140, 60, .55); }
+    button.on { border-color: var(--gold); color: var(--gold); }
+    button.small { padding: 4px 8px; font-size: 11px; }
+    .row { display: flex; gap: 6px; align-items: center; }
+    .row > * { flex: 1; }
+    .seg { display: flex; border: 1px solid var(--line-2); border-radius: 7px; overflow: hidden; }
+    .seg button { flex: 1; border: 0; border-radius: 0; background: transparent; font-weight: 600; }
+    .seg button + button { border-left: 1px solid var(--line-2); }
+    .seg button.on { background: rgba(255, 122, 61, .16); color: var(--gold); box-shadow: none; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .field { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 11px; }
+    details { border: 1px solid var(--line); border-radius: var(--r); background: rgba(12, 7, 16, .45); }
+    summary { cursor: pointer; padding: 8px 10px; list-style: none; display: flex; justify-content: space-between; font: 500 11px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    summary::after { content: '+'; color: var(--copper); } details[open] summary::after { content: '–'; }
+    details > .body { padding: 4px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .vol-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dim); font-style: italic; }
+    #vol-val { color: var(--gold); font-family: var(--mono); font-style: normal; }
+
+    /* ---------------------------------------------------- center stage */
+    main { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); }
+    @media (min-width: 1560px) { main { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+    .pane { position: relative; min-height: 0; min-width: 0; }
+    #forge { position: absolute; inset: 0; }
+    #forge canvas { display: block; }
+    .pane-title { position: absolute; top: 12px; left: 14px; z-index: 2; pointer-events: none; max-width: calc(100% - 330px); }
+    .pane-title .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pane-title .name { font: 700 17px/1.2 var(--display); letter-spacing: .04em; text-shadow: 0 2px 14px #000; color: var(--text); }
+    .pane-title .meta { color: var(--muted); font: 11px var(--mono); margin-top: 3px; }
+    .toolbar { position: absolute; top: 12px; right: 12px; display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; z-index: 2; max-width: 60%; }
+    .toolbar button { background: rgba(16, 8, 18, .8); }
+    #busy { position: absolute; left: 14px; bottom: 12px; font: 11px var(--mono); color: var(--muted); z-index: 2; }
+    #busy.working::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ember); margin-right: 6px; box-shadow: 0 0 10px var(--ember); animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+
+    #crucible-pane { border-top: 1px solid var(--line); display: flex; flex-direction: column; padding: 10px 14px 12px; gap: 8px; background: rgba(12, 6, 14, .55); }
+    @media (min-width: 1560px) { #crucible-pane { border-top: 0; border-left: 1px solid var(--line); } }
+    .crucible-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .crucible-head h2 { flex: 0 0 auto; }
+    .crucible-head h2::after { display: none; }
+    .crucible-head .grow { flex: 1; }
+    #gen { font: 600 12px var(--mono); color: var(--gold); }
+    #parents { color: var(--muted); font-size: 11.5px; font-style: italic; }
+    #grid-wrap { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; container-type: size; }
+    #grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 8px; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
+    .cell {
+      position: relative; border: 1px solid var(--line); border-radius: 9px; background: radial-gradient(circle at 50% 55%, #24101f, #0d0610 70%);
+      cursor: pointer; overflow: hidden; transition: border-color .15s, box-shadow .2s; min-width: 0; min-height: 0;
+    }
+    .cell svg { width: 100%; height: 100%; display: block; padding: 6%; }
+    .cell:hover { border-color: var(--copper); box-shadow: inset 0 0 22px rgba(255, 122, 61, .18); }
+    .cell.focus { border-color: var(--first); box-shadow: 0 0 0 1px var(--first), inset 0 0 26px rgba(191, 233, 255, .14); }
+    .cell.parent { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 22px rgba(255, 207, 110, .4); }
+    .cell .badge { position: absolute; top: 5px; left: 5px; width: 22px; height: 22px; border-radius: 50%; background: var(--flame); color: #2a0d0a; font: 700 12px/22px var(--display); text-align: center; }
+    .cell .cap { position: absolute; bottom: 4px; left: 6px; right: 6px; font: 10px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+    .cell .warn { position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+    .cell.pending::after { content: '✶'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--copper); font-size: 22px; animation: pulse 1s infinite; }
+    .cell.seed .cap { color: var(--gold); }
+
+    /* ---------------------------------------------------- right column */
+    .card { border: 1px solid var(--line-2); border-radius: var(--r); padding: 12px; background: linear-gradient(180deg, rgba(60, 24, 40, .45), rgba(16, 8, 18, .6)); position: relative; }
+    .card::before, .card::after { content: '✶'; position: absolute; top: 4px; color: var(--copper); font-size: 10px; }
+    .card::before { left: 7px; } .card::after { right: 7px; }
+    #sig-name { font: 700 14px/1.3 var(--display); text-align: center; color: var(--gold); letter-spacing: .03em; }
+    #inscription { font: italic 13.5px/1.6 var(--serif); text-align: center; color: #ffe6c7; margin-top: 8px; white-space: pre-line; }
+    #hash-row { display: flex; gap: 6px; margin-top: 10px; align-items: center; justify-content: center; }
+    #hash { font: 600 12px var(--mono); color: var(--first); letter-spacing: .05em; }
+    .effects-bound { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 8px; }
+    .chip { border: 1px solid var(--line-2); border-radius: 99px; padding: 1px 8px; font-size: 11px; color: var(--muted); }
+    .chip b { color: var(--copper); font-weight: 600; margin-right: 4px; font-family: var(--display); font-size: 10px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .stat { background: rgba(12, 7, 16, .6); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; min-width: 0; }
+    .stat .v { font: 600 13px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat .k { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    #warnings div { font-size: 12px; padding: 3px 0; }
+    #warnings .ok { color: var(--ok); } #warnings .w { color: var(--warn); }
+    .exports { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .exports .primary { grid-column: 1 / -1; }
+    #lineage { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+    .lin { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; cursor: pointer; background: rgba(12, 7, 16, .5); }
+    .lin:hover { border-color: var(--copper); }
+    .lin.current { border-color: var(--gold); }
+    .lin svg { width: 34px; height: 34px; flex: 0 0 auto; }
+    .lin .t { font-size: 11.5px; color: var(--muted); min-width: 0; }
+    .lin .t b { color: var(--text); font-family: var(--mono); font-size: 11px; }
+    .credit { color: var(--dim); font-size: 11px; border-top: 1px solid var(--line); padding-top: 10px; margin-top: auto; }
+    .credit a, .hint a { color: var(--copper); }
+    .ver { color: var(--gold); font-family: var(--mono); }
+    #toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; transition: .25s; background: rgba(30, 14, 28, .96); border: 1px solid var(--gold); color: var(--text); padding: 8px 14px; border-radius: 8px; z-index: 50; pointer-events: none; max-width: calc(100vw - 32px); }
+    #toast.show { opacity: 1; transform: translateX(-50%); }
+    #update-banner { position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%); background: var(--gold); color: #1a0a08; border-radius: 6px; padding: 6px 10px; display: flex; gap: 8px; align-items: center; font-weight: 600; max-width: calc(100% - 24px); }
+    #update-banner[hidden] { display: none; }
+    .oracle-on { color: var(--first) !important; }
+
+    /* ---------------------------------------------------- narrower screens */
+    @media (max-width: 1180px) { body { grid-template-columns: 270px minmax(0, 1fr) 290px; } }
+    @media (max-width: 960px) {
+      body { display: flex; flex-direction: column; height: auto; overflow: auto; }
+      main { order: -1; display: block; }
+      #forge-pane { height: 56vh; position: sticky; top: 0; z-index: 3; background: var(--night); border-bottom: 1px solid var(--line); }
+      #crucible-pane { border-top: 0; }
+      #grid-wrap { container-type: inline-size; }
+      #grid { width: 100%; height: auto; aspect-ratio: 1; max-width: 560px; margin: 0 auto; }
+      aside { border: 0 !important; border-top: 1px solid var(--line) !important; padding: 16px; overflow: visible; }
+      .toolbar { top: auto; bottom: 10px; right: 10px; max-width: 75%; }
+      .pane-title .name { font-size: 15px; }
+      .pane-title { max-width: calc(100% - 28px); }
+    }
+    @media (prefers-reduced-motion: reduce) { #embers { display: none; } }
+  </style>
+</head>
+<body>
+  <canvas id="embers" aria-hidden="true"></canvas>
+
+  <aside class="left" aria-label="Compiler and controls">
+    <div class="brand">
+      <svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
+        <defs><linearGradient id="fl" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5f3a"/><stop offset=".6" stop-color="#ffcf6e"/><stop offset="1" stop-color="#fff4d8"/></linearGradient></defs>
+        <circle cx="32" cy="32" r="28" fill="none" stroke="#d0643a" stroke-width="3"/>
+        <circle cx="32" cy="32" r="21" fill="none" stroke="#5a2d3a" stroke-width="1.5" stroke-dasharray="3 4"/>
+        <path d="M32 9 C40 22 46 28 44 40 C43 48 37 53 32 53 C27 53 21 48 20 40 C18 28 24 22 32 9 Z M32 26 C35 33 38 36 37 42 C36 46 34 47 32 47 C30 47 28 46 27 42 C26 36 29 33 32 26 Z" fill="url(#fl)" fill-rule="evenodd"/>
+      </svg>
+      <div><h1>Soulfire Spellforge</h1><div class="tag">bind · breed · forge</div></div>
+    </div>
+
+    <h2>Bind effects</h2>
+    <div id="slots"></div>
+    <div class="row">
+      <select id="grimoire" aria-label="Grimoire of preset spells"></select>
+    </div>
+    <button id="btn-compile" class="primary" title="Compile the bound effects into a Generation-0 sigil and its crucible">Compile base sigil</button>
+    <label class="inline" id="oracle-toggle-row" hidden><input type="checkbox" id="use-oracle" /> <span class="oracle-on">Ask the Oracle</span> (Claude reads the words)</label>
+
+    <h2>Crucible</h2>
+    <div class="field">Mutation volatility <span id="vol-val">0.15</span>
+      <input type="range" id="volatility" min="0.05" max="0.5" step="0.01" value="0.15" aria-label="Mutation volatility" />
+      <div class="vol-labels"><span>Harmonic refinement</span><span>Wild surge</span></div>
+    </div>
+
+    <h2>Physical form</h2>
+    <div class="seg" id="form-kind" role="group" aria-label="Form factor">
+      <button data-v="openwork" title="Cut-through lattice talisman">Open-work</button>
+      <button data-v="medallion" title="Raised sigil on a bevelled plate">Medallion</button>
+      <button data-v="coin" title="Sigil engraved into a coin">Coin</button>
+    </div>
+    <div class="grid2">
+      <label class="field">Diameter (mm)<input type="number" id="diameter" min="20" max="120" step="1" value="45" /></label>
+      <label class="field">Plate shape
+        <select id="shape"><option value="disc">Disc</option><option value="polygon">Polygon</option></select>
+      </label>
+    </div>
+    <label class="field">Printer
+      <select id="nozzle">
+        <option value="1.6,0.8">FDM 0.4 mm nozzle (1.6 mm walls)</option>
+        <option value="1.2,0.6">FDM 0.4 mm, daring (1.2 mm walls)</option>
+        <option value="2.0,1.0">FDM 0.6 mm nozzle (2.0 mm walls)</option>
+        <option value="0.8,0.4">Resin (0.8 mm walls)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </label>
+    <div class="grid2" id="custom-walls" hidden>
+      <label class="field">Min wall (mm)<input type="number" id="minwall" min="0.4" max="3" step="0.1" value="1.6" /></label>
+      <label class="field">Min gap (mm)<input type="number" id="mingap" min="0.3" max="2" step="0.1" value="0.8" /></label>
+    </div>
+    <div class="row">
+      <label class="inline"><input type="checkbox" id="bail" checked /> Bail loop</label>
+      <label class="inline"><input type="checkbox" id="plinth" /> Desk plinth</label>
+    </div>
+    <details><summary>Relief tiers</summary><div class="body">
+      <div class="grid3">
+        <label class="field">Tier 1<input type="number" id="t1" min="1" max="3" step="0.2" value="1.8" /></label>
+        <label class="field">Tier 2<input type="number" id="t2" min="1.6" max="5" step="0.2" value="3.0" /></label>
+        <label class="field">Tier 3<input type="number" id="t3" min="2.2" max="7" step="0.2" value="4.0" /></label>
+      </div>
+      <div class="hint">Heights in mm from the bed. Swap filament at the tier-1 and tier-2 heights for a three-colour print.</div>
+    </div></details>
+    <details id="oracle"><summary>Oracle (optional LLM)</summary><div class="body">
+      <div class="hint">Off by default: the forge reads your words with its own lexicon. Add a Claude API key to let Claude interpret them instead. The key stays in this browser and is sent only to the Claude API.</div>
+      <input type="password" id="api-key" placeholder="sk-ant-…" autocomplete="off" aria-label="Claude API key" />
+      <select id="oracle-model" aria-label="Oracle model"></select>
+      <label class="inline"><input type="checkbox" id="remember-key" /> Remember the key on this device</label>
+    </div></details>
+
+    <div class="credit">
+      <span id="version" class="ver">v…</span> · Built by <b>Claude</b> (Anthropic) for Soulfire Mage, on the Starship Drydock's genome → manifold engine.
+      Geometry by <a href="https://github.com/elalish/manifold" target="_blank" rel="noopener">manifold-3d</a>, light by three.js.
+      <br />Not suitable for national security, crime detection, birth prevention or serious healthcare. Tongue in cheek, please.
+      <br /><a href="https://github.com/SoulFireMage/spell-forge" target="_blank" rel="noopener">Source &amp; agent spec</a>
+    </div>
+  </aside>
+
+  <main>
+    <section class="pane" id="forge-pane" aria-label="3D Forge">
+      <div id="forge"></div>
+      <div id="update-banner" hidden><span></span> <button id="btn-update" class="primary small">Reload</button></div>
+      <div class="pane-title"><div class="name" id="forge-name">Kindling…</div><div class="meta" id="forge-meta">Loading manifold-3d…</div></div>
+      <div class="toolbar">
+        <button id="btn-spin" class="small on" title="Turn slowly">Spin</button>
+        <button id="btn-bridges" class="small on" title="Highlight the structural bridges">Bridges</button>
+        <button class="small" data-view="top">Top</button>
+        <button class="small" data-view="tilt">Tilt</button>
+        <button class="small" data-view="side">Edge</button>
+        <button class="small" id="btn-shot" title="Save a PNG">PNG</button>
+      </div>
+      <div id="busy"></div>
+    </section>
+    <section class="pane" id="crucible-pane" aria-label="The Crucible">
+      <div class="crucible-head">
+        <h2>The Crucible</h2><span id="gen">Gen 0</span>
+        <span id="parents">Click a sigil to choose it as a parent (up to two).</span>
+        <span class="grow"></span>
+        <button id="btn-reroll" class="small" title="Nine new children from the same parents">Reroll</button>
+        <button id="btn-mutate" class="primary small" title="Breed nine children from the chosen parents">Mutate generation ▸</button>
+      </div>
+      <div id="grid-wrap"><div id="grid" role="listbox" aria-label="Candidate sigils" aria-multiselectable="true"></div></div>
+    </section>
+  </main>
+
+  <aside class="right" aria-label="Lineage and export">
+    <div class="card">
+      <div id="sig-name">…</div>
+      <div id="inscription"></div>
+      <div class="effects-bound" id="bound"></div>
+      <div id="hash-row"><span id="hash">SF1-…</span><button class="small" id="btn-copy-hash" title="Copy the genome hash">Copy</button></div>
+    </div>
+
+    <h2>Forge report</h2>
+    <div class="stats" id="stats"></div>
+    <div id="warnings"></div>
+
+    <h2>Export</h2>
+    <div class="exports">
+      <button id="btn-stl" class="primary" title="Watertight STL in millimetres, ready to slice">STL for printing</button>
+      <button id="btn-3mf" title="3MF with the three tiers coloured">3MF (tiers)</button>
+      <button id="btn-svg" title="Layered vector: one group per tier">SVG</button>
+      <button id="btn-json">Genome .json</button>
+      <button id="btn-link">Share link</button>
+      <button id="btn-mcad" title="Self-contained script for manifoldcad.org: the real compiler plus this genome">ManifoldCAD</button>
+      <button id="btn-card" title="Inscription and print notes as text">Spell card</button>
+    </div>
+
+    <h2>Lineage</h2>
+    <div id="lineage"></div>
+
+    <details><summary>Genome JSON</summary><div class="body">
+      <textarea id="genome-json" spellcheck="false" aria-label="Genome JSON"></textarea>
+      <button id="btn-apply">Apply genome JSON</button>
+    </div></details>
+    <details><summary>Telemetry</summary><div class="body"><textarea id="telemetry" readonly aria-label="Telemetry JSON"></textarea></div></details>
+  </aside>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./src/app.js?v=1.0.0"></script>
+</body>
+</html>
