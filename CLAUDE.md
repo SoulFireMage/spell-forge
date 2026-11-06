@@ -9,3 +9,7 @@ Thank you.
 - Read `AGENT_SPEC.md` before changing the compiler, the genome or the Laws. Any genome in range must compile to one watertight body; `npm test` enforces it.
 - Every manifold-3d object goes through `Scope.k()`; the test fails on leaks.
 - An AI project built by Claude; keep that credit in the README and the page footer.
+
+## Skapi (planned for v2)
+- Reuse the existing Skapi project "Starship Whisperer" (ID `5GJ5SJePWQUiq0jvYr-2ZVgaOLUqOhnse3Hcl8M4d`, eu-west-3, CORS `*`). Do not create a new project; the owner's decision.
+- One user pool is shared with Starship Whisperer, so a Spellforge sign-up is also a Starship Whisperer account. Keep Spellforge data in its own tables, prefixed `spellforge_` (e.g. `spellforge_sigils`).
