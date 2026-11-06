@@ -7,7 +7,7 @@
 //
 // The project is shared with Starship Whisperer (the owner's choice), so
 // every table is prefixed `spellforge_` and one login works on both sites.
-import { encodeGenome, decodeGenome, hashGenome } from './genome.js?v=1.1.0';
+import { encodeGenome, decodeGenome, hashGenome } from './genome.js?v=1.2.0';
 
 // Public configuration. The project ID identifies the project; it isn't a
 // secret: what each user may read or write is enforced by Skapi itself.

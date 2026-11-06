@@ -184,6 +184,14 @@
     #update-banner { position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%); background: var(--gold); color: #1a0a08; border-radius: 6px; padding: 6px 10px; display: flex; gap: 8px; align-items: center; font-weight: 600; max-width: calc(100% - 24px); }
     #update-banner[hidden] { display: none; }
 
+    .swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+    .sw { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 11px; font-weight: 600; text-align: left; min-width: 0; }
+    .sw .chips { display: flex; flex: 0 0 auto; }
+    .sw .chips i { width: 10px; height: 16px; display: block; border: 1px solid rgba(0,0,0,.4); }
+    .sw .chips i:first-child { border-radius: 3px 0 0 3px; } .sw .chips i:last-child { border-radius: 0 3px 3px 0; }
+    .sw span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    input[type=color] { width: 100%; height: 30px; border: 1px solid var(--line); background: #0d0710; border-radius: 6px; padding: 2px; cursor: pointer; }
+    #colour-hint.warn { color: var(--warn); font-style: normal; }
     /* ---------------------------------------------------- spellbook, hall, account */
     #account-line { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
     #account-line b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -298,6 +306,15 @@
       </div>
       <div class="hint">Heights in mm from the bed. Swap filament at the tier-1 and tier-2 heights for a three-colour print.</div>
     </div></details>
+
+    <h2>Colours</h2>
+    <div class="swatches" id="swatches" role="group" aria-label="Filament sets"></div>
+    <div class="grid3">
+      <label class="field">Base<input type="color" id="c1" aria-label="Tier 1 colour (base)" /></label>
+      <label class="field">Rings<input type="color" id="c2" aria-label="Tier 2 colour (rings)" /></label>
+      <label class="field">Core<input type="color" id="c3" aria-label="Tier 3 colour (core)" /></label>
+    </div>
+    <div class="hint" id="colour-hint">The effects chose these. Pick a set or a colour to make them yours.</div>
     <details id="oracle"><summary>Oracle (optional LLM)</summary><div class="body">
       <div class="hint">Off by default: the forge reads your words with its own lexicon. Add a Claude API key to let Claude interpret them instead. The key stays in this browser and is sent only to the Claude API.</div>
       <input type="password" id="api-key" placeholder="sk-ant-…" autocomplete="off" aria-label="Claude API key" />
@@ -422,6 +439,6 @@
     </div>
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./src/app.js?v=1.1.0"></script>
+  <script type="module" src="./src/app.js?v=1.2.0"></script>
 </body>
 </html>

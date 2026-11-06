@@ -1,7 +1,7 @@
 // worker.js — runs the sigil compiler off the main thread so the crucible
 // grid and the orbit camera never stall while manifold-3d does booleans.
 import Module from 'https://cdn.jsdelivr.net/npm/manifold-3d@3.5.4/manifold.js';
-import { compileSigil } from './sigil.js?v=1.1.0';
+import { compileSigil } from './sigil.js?v=1.2.0';
 
 const ready = Module().then((w) => { w.setup(); return w; });
 

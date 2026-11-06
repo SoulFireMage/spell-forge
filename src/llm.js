@@ -7,7 +7,7 @@
 // Bring-your-own-key: the key stays in this browser (memory, or localStorage
 // only if the user ticks "remember"), and requests go straight from the
 // browser to the Claude API. The SDK is loaded only when the Oracle is used.
-import { CATALOG, DOMAINS } from './genome.js?v=1.1.0';
+import { CATALOG, DOMAINS } from './genome.js?v=1.2.0';
 
 const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.4.0/+esm';
 export const ORACLE_MODELS = [

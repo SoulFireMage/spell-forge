@@ -12,7 +12,7 @@
 //  6. exporters: STL triangle count, 3MF zip signature, SVG well-formed
 import Module from 'manifold-3d';
 import { compileSigil } from '../src/sigil.js';
-import { normalize, mutate, crossover, brood, encodeGenome, decodeGenome, hashGenome, allowed, CATALOG } from '../src/genome.js';
+import { normalize, mutate, crossover, brood, encodeGenome, decodeGenome, hashGenome, allowed, CATALOG, PALETTES } from '../src/genome.js';
 import { presetGenome, compileEffects, PRESET_SPELLS, EFFECTS } from '../src/lexicon.js';
 import { stlBinary, threeMF, sigilSVG } from '../src/export.js';
 import { rng } from '../src/geom.js';
@@ -140,6 +140,10 @@ console.log('5. determinism + share links');
   ok(hashGenome(mutate(a, { seed: 5 })) === hashGenome(mutate(a, { seed: 5 })), 'mutate is not deterministic');
   ok(brood([a], { seed: 3 }).length === 9, 'brood is not nine');
   ok(normalize({}).effects.length === 1, 'normalize({}) did not repair');
+  ok(hashGenome({ ...a, palette: PALETTES.jade }) === hashGenome(a), 'recolouring changed the genome hash');
+  ok(compileEffects([{ id: 'bulwark' }]).palette.t2 === PALETTES.abyss.t2, 'ward effects did not suggest Abyss');
+  ok(compileEffects([{ id: 'ignition' }]).palette.t2 === PALETTES.soulfire.t2, 'kinetic effects did not suggest Soulfire');
+  ok(mutate({ ...a, palette: PALETTES.bone }, { seed: 9, volatility: 0.5 }).palette.t3 === PALETTES.bone.t3, 'mutation changed the colours');
   ok(normalize({ symmetry: { n: 99 } }).symmetry.n === 12, 'symmetry not clamped');
 }
 

@@ -100,8 +100,17 @@ laws in `LAWS`. `form`, `relief`, `palette` and `effects` are the user's
 choices, not genes: mutation never touches them.
 
 **Genome hash** (`hashGenome`): `SF1-` + FNV-1a of the canonical design
-(everything except `meta`), so two identical sigils share a hash regardless
-of name or lineage. **Share links**: `#g=` + URL-safe base64 of the genome.
+(everything except `meta` and `palette`), so two identical sigils share a hash
+regardless of name, lineage or colour.
+
+**Palette = filaments.** Tier 1 / 2 / 3 are the three filaments of a
+colour-swap print. By default the effects choose (`DOMAIN_PALETTE`: ward →
+Abyss, kinetic → Soulfire, focus → Moonsilver, entropy → Storm, by the
+strongest domain). Once the user picks a named set (`PALETTES`) or a colour,
+it applies to the whole crucible and stays through breeding; mutation and
+crossover never touch colour. Recolouring needs no recompile. The UI warns
+when neighbouring tiers are too close in brightness (contrast < 1.35), and
+the spell card prints the swap plan. **Share links**: `#g=` + URL-safe base64 of the genome.
 
 ### The Laws of Sympathetic Geometry (`LAWS`)
 | Domain | Symmetry | Core | Spokes / terminals | Rings | Lattice | Motifs |

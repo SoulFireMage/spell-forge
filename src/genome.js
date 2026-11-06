@@ -5,7 +5,7 @@
 // The genome describes ONE WEDGE of the sigil plus a symmetry group; the
 // compiler (sigil.js) lifts that wedge to the whole disc. So mutation can do
 // anything inside the wedge and the declared symmetry still can't break.
-import { rng, hash32, clamp } from './geom.js?v=1.1.0';
+import { rng, hash32, clamp } from './geom.js?v=1.2.0';
 
 export const SCHEMA = 'sigil-genome/1';
 export const DOMAINS = ['ward', 'kinetic', 'focus', 'entropy'];
@@ -94,6 +94,21 @@ export const DEFAULT_FORM = {
 };
 export const DEFAULT_RELIEF = { t1: 1.8, t2: 3.0, t3: 4.0 };
 export const DEFAULT_PALETTE = { t1: '#3b1830', t2: '#d0643a', t3: '#ffcf6e', bridge: '#9fe6ff' };
+
+/** Named filament sets: tier 1 (base) → tier 3 (core). The bridge colour is only the Forge's highlight. */
+export const PALETTES = {
+  soulfire: { label: 'Soulfire', t1: '#3b1830', t2: '#d0643a', t3: '#ffcf6e', bridge: '#9fe6ff' },
+  phoenix: { label: 'Phoenix', t1: '#5a0f14', t2: '#e2541f', t3: '#ffc23a', bridge: '#9fe6ff' },
+  jade: { label: 'Dragon Jade', t1: '#0f2a22', t2: '#2f8a64', t3: '#c9e8a8', bridge: '#ffd27a' },
+  moonsilver: { label: 'Moonsilver', t1: '#22243a', t2: '#8a8fa8', t3: '#eef0f8', bridge: '#ffcf6e' },
+  abyss: { label: 'Abyss', t1: '#0b1838', t2: '#18788a', t3: '#7fe8f0', bridge: '#ffcf6e' },
+  bone: { label: 'Bone & Ink', t1: '#151515', t2: '#e8e0cc', t3: '#c9a227', bridge: '#9fe6ff' },
+  storm: { label: 'Storm', t1: '#1c2a1e', t2: '#6f8f3a', t3: '#f2f6d8', bridge: '#c49bff' },
+  single: { label: 'Single filament', t1: '#d0643a', t2: '#d0643a', t3: '#d0643a', bridge: '#9fe6ff' },
+};
+/** What each domain suggests when the effects choose the colours (requirements: meaning, for those who want it). */
+export const DOMAIN_PALETTE = { ward: 'abyss', kinetic: 'soulfire', focus: 'moonsilver', entropy: 'storm' };
+export const paletteOf = (key) => { const { label, ...p } = PALETTES[key] || PALETTES.soulfire; return p; };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const num = (v, [lo, hi, kind], d) => {
@@ -386,10 +401,10 @@ export function brood(parents, { seed = 1, volatility = 0.15, count = 9 } = {}) 
 // Hash + share encoding
 // ---------------------------------------------------------------------------
 
-/** Canonical design hash: everything that shapes the object (meta excluded). */
+/** Canonical design hash: everything that shapes the object (meta and palette excluded). */
 export function hashGenome(g) {
   const n = normalize(g);
-  const { meta, ...design } = n;
+  const { meta, palette, ...design } = n; // colour isn't shape: same hash, whatever it's printed in
   const round = (k, v) => (typeof v === 'number' ? Math.round(v * 1e4) / 1e4 : v);
   const h = hash32(JSON.stringify(design, round));
   return `SF1-${h.toString(16).padStart(8, '0').toUpperCase()}`;

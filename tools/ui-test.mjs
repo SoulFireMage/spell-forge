@@ -68,6 +68,15 @@ async function run(viewport, tag) {
     const script = await page.evaluate(() => window.spellforge.manifoldCadScript());
     ok(script.includes('compileSigil') && script.includes("from 'manifold-3d/manifoldCAD'"), `${tag}: ManifoldCAD script built`);
 
+    // colours: a filament set repaints everything without changing the shape
+    const before = await page.evaluate(() => window.spellforge.telemetry.hash);
+    await page.click('#swatches button[data-p="jade"]');
+    await page.waitForFunction(() => window.spellforge.genome.palette.t2 === '#2f8a64', null, T);
+    ok((await page.evaluate(() => window.spellforge.telemetry.hash)) === before, `${tag}: Dragon Jade applied, same genome hash`);
+    ok((await page.$$eval('#grid .cell svg path[fill="#2f8a64"]', (x) => x.length)) >= 9, `${tag}: crucible repainted`);
+    await page.click('#swatches button[data-p="auto"]');
+    ok(await page.$eval('#swatches button[data-p="auto"]', (b) => b.classList.contains('on')), `${tag}: back to the effects' colours`);
+
     // Skapi (mocked): sign in, save, publish, Hall, open, sign out
     await page.click('#btn-account');
     await page.fill('#form-login input[name=email]', 'kat@example.com');

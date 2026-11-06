@@ -1,13 +1,13 @@
 // app.js — UI wiring: effect slots, the crucible (3×3 breeding grid), the
 // 3D Forge, lineage rollback, export, and the window.spellforge agent API.
-import { Forge } from './viewer.js?v=1.1.0';
-import { normalize, brood, encodeGenome, decodeGenome, hashGenome, DEFAULT_FORM, DEFAULT_RELIEF } from './genome.js?v=1.1.0';
-import { EFFECTS, PRESET_SPELLS, compileEffects, effectById } from './lexicon.js?v=1.1.0';
-import { sigilSVG, stlBinary, threeMF } from './export.js?v=1.1.0';
-import { buildManifoldCadScript, SOURCE_FILES } from './manifoldcad.js?v=1.1.0';
-import { consultOracle, ORACLE_MODELS, loadOracleSettings, saveOracleSettings } from './llm.js?v=1.1.0';
-import { VERSION, RELEASED } from './version.js?v=1.1.0';
-import * as cloud from './cloud.js?v=1.1.0';
+import { Forge } from './viewer.js?v=1.2.0';
+import { normalize, brood, encodeGenome, decodeGenome, hashGenome, DEFAULT_FORM, DEFAULT_RELIEF, PALETTES, DOMAIN_PALETTE, paletteOf } from './genome.js?v=1.2.0';
+import { EFFECTS, PRESET_SPELLS, compileEffects, effectById } from './lexicon.js?v=1.2.0';
+import { sigilSVG, stlBinary, threeMF } from './export.js?v=1.2.0';
+import { buildManifoldCadScript, SOURCE_FILES } from './manifoldcad.js?v=1.2.0';
+import { consultOracle, ORACLE_MODELS, loadOracleSettings, saveOracleSettings } from './llm.js?v=1.2.0';
+import { VERSION, RELEASED } from './version.js?v=1.2.0';
+import * as cloud from './cloud.js?v=1.2.0';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -16,7 +16,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 class Pool {
   constructor(size) {
     this.workers = Array.from({ length: size }, () => {
-      const w = new Worker(new URL('./worker.js?v=1.1.0', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('./worker.js?v=1.2.0', import.meta.url), { type: 'module' });
       w.load = 0;
       w.onmessage = (e) => {
         const p = this.pending.get(e.data.id); this.pending.delete(e.data.id);
@@ -57,7 +57,9 @@ const state = {
   current: null,     // last 3D result shown in the forge
   volatility: 0.15,
 };
-const physical = (g) => normalize({ ...g, form: { ...state.form }, relief: { ...state.relief } });
+// palette: null = "the effects choose" (each genome keeps the colours its effects suggested); otherwise the user's choice, applied to all
+state.palette = null;
+const physical = (g) => normalize({ ...g, form: { ...state.form }, relief: { ...state.relief }, ...(state.palette ? { palette: { ...state.palette } } : {}) });
 
 // ------------------------------------------------------------ effect slots
 const SLOT_NAMES = [['I', 'Core', 'primary intent'], ['II', 'Flow', 'secondary modifier'], ['III', 'Binding', 'containment']];
@@ -253,6 +255,7 @@ async function pumpForge() {
     state.current = r;
     view.show(r, opts);
     report(r);
+    syncColourUI();
     syncUrl(r.genome);
   } catch (err) {
     $('forge-meta').innerHTML = `<span style="color:var(--bad)">forge failed: ${esc(err.message)}</span>`;
@@ -330,7 +333,8 @@ ${g.effects.map((e) => `  ${['I  (Core)', 'II (Flow)', 'III (Binding)'][e.slot -
 Genome hash: ${t.hash}
 Form: ${g.form.kind}, ${g.form.diameter} mm${g.form.bail ? ', bail loop' : ''}${g.form.plinth ? ', desk plinth' : ''}
 Symmetry: ${t.symmetry} · Mass ≈ ${t.massG} g PLA · ${t.dimensionsMm.x} × ${t.dimensionsMm.y} × ${t.dimensionsMm.z} mm
-Printing: walls ≥ ${t.minWallMm} mm. For three colours, pause and swap filament at ${t.filamentSwapsAtMm.join(' mm and ')} mm.
+Printing: walls ≥ ${t.minWallMm} mm.
+Filament plan: start with ${colourName(g.palette.t1)}; swap to ${colourName(g.palette.t2)} at ${t.filamentSwapsAtMm[0]} mm; swap to ${colourName(g.palette.t3)} at ${t.filamentSwapsAtMm[1]} mm.
 
 Reforge it: ${shareUrl(g)}
 
@@ -358,7 +362,7 @@ function wireExport() {
     try {
       const g = normalize(JSON.parse($('genome-json').value));
       state.grid[state.focus] = { genome: physical(g), result: null };
-      Object.assign(state.form, g.form); Object.assign(state.relief, g.relief); syncFormUI();
+      Object.assign(state.form, g.form); Object.assign(state.relief, g.relief); state.palette = { ...g.palette }; syncFormUI();
       renderGrid(); compileGrid(); showInForge(state.grid[state.focus].genome);
     } catch (err) { toast(`Not a genome: ${err.message}`); }
   });
@@ -386,6 +390,63 @@ function wireOracle() {
   $('api-key').addEventListener('input', upd);
   $('oracle-toggle-row').hidden = !oracle.apiKey;
   $('use-oracle').checked = !!oracle.apiKey;
+}
+
+// ------------------------------------------------------------ colours (filament sets)
+const lum = (hex) => {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+function colourName(hex) {
+  for (const [, p] of Object.entries(PALETTES)) for (const k of ['t1', 't2', 't3']) if (p[k].toLowerCase() === hex.toLowerCase()) return `${hex} (${p.label} ${['base', 'rings', 'core'][+k[1] - 1]})`;
+  return hex;
+}
+const shownPalette = () => state.palette || (state.grid[state.focus] ? state.grid[state.focus].genome.palette : paletteOf('soulfire'));
+function syncColourUI() {
+  const p = shownPalette();
+  $('c1').value = p.t1; $('c2').value = p.t2; $('c3').value = p.t3;
+  for (const b of $('swatches').querySelectorAll('button')) {
+    const k = b.dataset.p;
+    b.classList.toggle('on', k === 'auto' ? !state.palette : !!state.palette && ['t1', 't2', 't3'].every((t) => PALETTES[k][t] === state.palette[t]));
+  }
+  const single = p.t1 === p.t2 && p.t2 === p.t3;
+  const low = !single && (contrast(p.t1, p.t2) < 1.35 || contrast(p.t2, p.t3) < 1.35);
+  $('colour-hint').classList.toggle('warn', low);
+  $('colour-hint').textContent = low ? 'Two neighbouring tiers are close in brightness: the relief may vanish in the print.'
+    : single ? 'One filament: the relief alone carries the design.'
+    : state.palette ? 'Your colours, kept as you breed. Choose "From the effects" to let the spell decide.'
+    : 'The effects chose these. Pick a set or a colour to make them yours.';
+}
+function setPalette(p) {
+  state.palette = p ? { ...shownPalette(), ...p } : null;
+  if (!p) { // back to the effects' suggestion, from each genome's strongest domain
+    state.grid = state.grid.map((c) => {
+      const w = { ward: 0, kinetic: 0, focus: 0, entropy: 0 };
+      for (const e of c.genome.effects) for (const d in w) w[d] += e.w[d];
+      const top = Object.keys(w).reduce((a, b) => (w[b] > w[a] ? b : a));
+      return { genome: normalize({ ...c.genome, palette: paletteOf(DOMAIN_PALETTE[top]) }), result: c.result };
+    });
+  } else state.grid = state.grid.map((c) => ({ genome: physical(c.genome), result: c.result }));
+  // colour needs no recompile: repaint the cached 2D results and re-show the forge mesh
+  for (const c of state.grid) if (c.result) c.result = { ...c.result, genome: c.genome };
+  renderGrid();
+  const g = state.grid[state.focus].genome;
+  if (state.current) { state.current = { ...state.current, genome: { ...state.current.genome, palette: g.palette } }; view.show(state.current); report(state.current); syncUrl(state.current.genome); }
+  syncColourUI();
+}
+function wireColours() {
+  $('swatches').innerHTML = `<button class="sw" data-p="auto" title="Let the bound effects choose: ward → Abyss, kinetic → Soulfire, focus → Moonsilver, entropy → Storm"><span>✶ From the effects</span></button>`
+    + Object.entries(PALETTES).map(([k, p]) => `<button class="sw" data-p="${k}" title="${p.label}"><span class="chips"><i style="background:${p.t1}"></i><i style="background:${p.t2}"></i><i style="background:${p.t3}"></i></span><span>${p.label}</span></button>`).join('');
+  $('swatches').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    setPalette(b.dataset.p === 'auto' ? null : paletteOf(b.dataset.p));
+  });
+  let t = null;
+  for (const id of ['c1', 'c2', 'c3']) $(id).addEventListener('input', () => {
+    clearTimeout(t);
+    t = setTimeout(() => setPalette({ t1: $('c1').value, t2: $('c2').value, t3: $('c3').value }), 120);
+  });
 }
 
 // ------------------------------------------------------------ embers (phoenix, lightly)
@@ -453,6 +514,7 @@ function wire() {
   wireExport();
   wireOracle();
   wireCloud();
+  wireColours();
   syncFormUI();
 }
 
@@ -463,7 +525,7 @@ checkVersion();
 /** Bring a genome into the crucible: it sits at the centre, with eight gentle variants around it. */
 function adopt(g) {
   g = normalize(g);
-  Object.assign(state.form, g.form); Object.assign(state.relief, g.relief); syncFormUI();
+  Object.assign(state.form, g.form); Object.assign(state.relief, g.relief); state.palette = { ...g.palette }; syncFormUI();
   writeSlots(g.effects.map((e) => ({ id: e.id, text: e.text || (e.id ? '' : e.label) })));
   const around = brood([g], { seed: g.meta.seed, volatility: 0.12, count: 8 });
   state.lineage = [];
