@@ -1,6 +1,4 @@
-We have existing infrastructure and template stuff for how to do the nuts and bolts of this. If you use the Starship design site and our usual root of skapi.com and GitHub Pages to produce yet another site.
 
-Thank you. 
 
 # Master Requirements Brief: Soulfire Mage’s Spellforge
 **System Archetype:** Programmable Vector-to-3D Sigil Compiler & Evolutionary Forge  
