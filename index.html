@@ -183,6 +183,37 @@
     #toast.show { opacity: 1; transform: translateX(-50%); }
     #update-banner { position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%); background: var(--gold); color: #1a0a08; border-radius: 6px; padding: 6px 10px; display: flex; gap: 8px; align-items: center; font-weight: 600; max-width: calc(100% - 24px); }
     #update-banner[hidden] { display: none; }
+
+    /* ---------------------------------------------------- spellbook, hall, account */
+    #account-line { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    #account-line b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #account-line .grow { flex: 1; min-width: 0; }
+    .book { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .entry { position: relative; border: 1px solid var(--line); border-radius: 8px; background: radial-gradient(circle at 50% 55%, #24101f, #0d0610 70%); cursor: pointer; overflow: hidden; aspect-ratio: 1 / 1.18; display: flex; flex-direction: column; }
+    .entry:hover { border-color: var(--copper); }
+    .entry .art { flex: 1; min-height: 0; display: grid; place-items: center; }
+    .entry .art svg { width: 100%; height: 100%; padding: 8%; }
+    .entry .art.pending::after { content: '✶'; color: var(--copper); animation: pulse 1s infinite; }
+    .entry .lbl { font-size: 10.5px; line-height: 1.25; padding: 3px 5px 4px; color: var(--muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .entry .lbl i { color: var(--dim); font-style: normal; font-family: var(--mono); font-size: 9.5px; }
+    .entry .x { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 11px; line-height: 18px; opacity: .0; transition: opacity .15s; }
+    .entry:hover .x, .entry:focus-within .x { opacity: 1; }
+    @media (hover: none) { .entry .x { opacity: .85; } }
+    dialog { margin: auto; background: var(--night-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 12px; padding: 0; box-shadow: 0 20px 80px rgba(0,0,0,.6), 0 0 40px rgba(255, 122, 61, .12); }
+    dialog::backdrop { background: rgba(6, 3, 8, .72); backdrop-filter: blur(3px); }
+    dialog .head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    dialog .head h2 { flex: 1; } dialog .head h2::after { display: none; }
+    dialog .body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    #hall { width: min(980px, calc(100vw - 24px)); max-height: calc(100vh - 40px); }
+    #hall .body { overflow-y: auto; max-height: calc(100vh - 120px); }
+    #hall .book { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    #hall .entry .lbl { font-size: 11.5px; }
+    #auth { width: min(380px, calc(100vw - 24px)); }
+    #auth form { display: flex; flex-direction: column; gap: 8px; }
+    #auth .tabs { display: flex; gap: 4px; }
+    #auth .tabs button { flex: 1; }
+    #auth .err { color: var(--bad); font-size: 12px; min-height: 1em; }
+    .empty { color: var(--dim); font-style: italic; font-size: 12px; grid-column: 1 / -1; }
     .oracle-on { color: var(--first) !important; }
 
     /* ---------------------------------------------------- narrower screens */
@@ -332,6 +363,15 @@
       <button id="btn-card" title="Inscription and print notes as text">Spell card</button>
     </div>
 
+    <h2>Spellbook</h2>
+    <div id="account-line"><span class="grow" id="account-who">Sign in to keep a Spellbook and to visit the Hall.</span><button class="small" id="btn-account">Sign in</button></div>
+    <div class="row" id="book-actions" hidden>
+      <button id="btn-save" title="Save the sigil in the Forge to your private Spellbook">Save to Spellbook</button>
+      <button id="btn-publish" title="Publish the sigil in the Forge to the public Hall of Sigils">Publish to Hall</button>
+    </div>
+    <div class="book" id="spellbook"></div>
+    <button id="btn-hall" title="Browse sigils other mages have shared (members)">Enter the Hall of Sigils</button>
+
     <h2>Lineage</h2>
     <div id="lineage"></div>
 
@@ -342,7 +382,46 @@
     <details><summary>Telemetry</summary><div class="body"><textarea id="telemetry" readonly aria-label="Telemetry JSON"></textarea></div></details>
   </aside>
 
+  <dialog id="hall" aria-labelledby="hall-title">
+    <div class="head"><h2 id="hall-title">The Hall of Sigils</h2><button class="small" id="btn-hall-close" aria-label="Close">✕</button></div>
+    <div class="body">
+      <div class="hint">Sigils shared by other mages. Click one to bring it into your crucible and breed from it.</div>
+      <div class="book" id="hall-list"></div>
+      <button id="btn-hall-more" hidden>More…</button>
+    </div>
+  </dialog>
+  <dialog id="auth" aria-labelledby="auth-title">
+    <div class="head"><h2 id="auth-title">Your account</h2><button class="small" id="btn-auth-close" aria-label="Close">✕</button></div>
+    <div class="body">
+      <div class="hint" id="auth-note" hidden>The Hall of Sigils is for members: sign in, or create an account, and it opens.</div>
+      <div class="tabs" role="tablist">
+        <button class="small on" data-tab="login" role="tab">Sign in</button>
+        <button class="small" data-tab="signup" role="tab">Create account</button>
+        <button class="small" data-tab="forgot" role="tab">Forgot password</button>
+      </div>
+      <form id="form-login" data-pane="login">
+        <input type="email" name="email" placeholder="E-mail" autocomplete="email" required aria-label="E-mail" />
+        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required aria-label="Password" />
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+      <form id="form-signup" data-pane="signup" hidden>
+        <input type="text" name="name" placeholder="Mage name (shown on Hall sigils, optional)" maxlength="40" autocomplete="nickname" aria-label="Mage name" />
+        <input type="email" name="email" placeholder="E-mail" autocomplete="email" required aria-label="E-mail" />
+        <input type="password" name="password" placeholder="Password (6–60 characters)" minlength="6" maxlength="60" autocomplete="new-password" required aria-label="Password" />
+        <button class="primary" type="submit">Create account</button>
+      </form>
+      <form id="form-forgot" data-pane="forgot" hidden>
+        <input type="email" name="email" placeholder="E-mail" autocomplete="email" required aria-label="E-mail" />
+        <button type="button" id="btn-send-code">Send me a reset code</button>
+        <input type="text" name="code" placeholder="Code from the e-mail" autocomplete="one-time-code" aria-label="Reset code" />
+        <input type="password" name="new_password" placeholder="New password" minlength="6" maxlength="60" autocomplete="new-password" aria-label="New password" />
+        <button class="primary" type="submit">Set new password</button>
+      </form>
+      <div class="err" id="auth-err" role="alert"></div>
+      <div class="hint">One account works here and on Starship Whisperer. Accounts and saved sigils are kept by <a href="https://www.skapi.com" target="_blank" rel="noopener">Skapi</a>; your Spellbook is private to you.</div>
+    </div>
+  </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./src/app.js?v=1.0.0"></script>
+  <script type="module" src="./src/app.js?v=1.1.0"></script>
 </body>
 </html>

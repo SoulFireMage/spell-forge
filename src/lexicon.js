@@ -6,8 +6,8 @@
 // same intermediate form (domain weights + a few hints + an inscription) and
 // then comes back through compileEffects() here, so it can't produce an
 // invalid or unprintable genome.
-import { rng, hash32, PHI } from './geom.js?v=1.0.0';
-import { normalize, normWeights, pickFor, parseSym, allowed, allowedSymmetry, DOMAINS, DEFAULT_FORM, DEFAULT_RELIEF } from './genome.js?v=1.0.0';
+import { rng, hash32, PHI } from './geom.js?v=1.1.0';
+import { normalize, normWeights, pickFor, parseSym, allowed, allowedSymmetry, DOMAINS, DEFAULT_FORM, DEFAULT_RELIEF } from './genome.js?v=1.1.0';
 
 // ---------------------------------------------------------------------------
 // Curated taxonomy (requirements §2 Stage 1). Weights over the four domains.

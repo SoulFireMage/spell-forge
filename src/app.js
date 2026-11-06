@@ -1,12 +1,13 @@
 // app.js — UI wiring: effect slots, the crucible (3×3 breeding grid), the
 // 3D Forge, lineage rollback, export, and the window.spellforge agent API.
-import { Forge } from './viewer.js?v=1.0.0';
-import { normalize, brood, encodeGenome, decodeGenome, hashGenome, DEFAULT_FORM, DEFAULT_RELIEF } from './genome.js?v=1.0.0';
-import { EFFECTS, PRESET_SPELLS, compileEffects, effectById } from './lexicon.js?v=1.0.0';
-import { sigilSVG, stlBinary, threeMF } from './export.js?v=1.0.0';
-import { buildManifoldCadScript, SOURCE_FILES } from './manifoldcad.js?v=1.0.0';
-import { consultOracle, ORACLE_MODELS, loadOracleSettings, saveOracleSettings } from './llm.js?v=1.0.0';
-import { VERSION, RELEASED } from './version.js?v=1.0.0';
+import { Forge } from './viewer.js?v=1.1.0';
+import { normalize, brood, encodeGenome, decodeGenome, hashGenome, DEFAULT_FORM, DEFAULT_RELIEF } from './genome.js?v=1.1.0';
+import { EFFECTS, PRESET_SPELLS, compileEffects, effectById } from './lexicon.js?v=1.1.0';
+import { sigilSVG, stlBinary, threeMF } from './export.js?v=1.1.0';
+import { buildManifoldCadScript, SOURCE_FILES } from './manifoldcad.js?v=1.1.0';
+import { consultOracle, ORACLE_MODELS, loadOracleSettings, saveOracleSettings } from './llm.js?v=1.1.0';
+import { VERSION, RELEASED } from './version.js?v=1.1.0';
+import * as cloud from './cloud.js?v=1.1.0';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -15,7 +16,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 class Pool {
   constructor(size) {
     this.workers = Array.from({ length: size }, () => {
-      const w = new Worker(new URL('./worker.js?v=1.0.0', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('./worker.js?v=1.1.0', import.meta.url), { type: 'module' });
       w.load = 0;
       w.onmessage = (e) => {
         const p = this.pending.get(e.data.id); this.pending.delete(e.data.id);
@@ -451,6 +452,7 @@ function wire() {
   wireForm();
   wireExport();
   wireOracle();
+  wireCloud();
   syncFormUI();
 }
 
@@ -458,18 +460,179 @@ wire();
 embers();
 checkVersion();
 
+/** Bring a genome into the crucible: it sits at the centre, with eight gentle variants around it. */
+function adopt(g) {
+  g = normalize(g);
+  Object.assign(state.form, g.form); Object.assign(state.relief, g.relief); syncFormUI();
+  writeSlots(g.effects.map((e) => ({ id: e.id, text: e.text || (e.id ? '' : e.label) })));
+  const around = brood([g], { seed: g.meta.seed, volatility: 0.12, count: 8 });
+  state.lineage = [];
+  state.lastParents = null;
+  setGrid([...around.slice(0, 4), g, ...around.slice(4)], { generation: g.meta.generation, focus: 4, selected: [4] });
+}
+
 // first sigil: a shared link, or the Ember Ward
 let first = null;
 const m = location.hash.match(/#g=([\w-]+)/);
 if (m) { try { first = decodeGenome(m[1]); } catch (_) { first = null; } }
-if (first) {
-  Object.assign(state.form, first.form); Object.assign(state.relief, first.relief); syncFormUI();
-  writeSlots(first.effects.map((e) => ({ id: e.id, text: e.text })));
-  const around = brood([first], { seed: first.meta.seed, volatility: 0.12, count: 8 });
-  setGrid([...around.slice(0, 4), first, ...around.slice(4)], { generation: first.meta.generation, focus: 4, selected: [4] });
-} else {
+if (first) adopt(first);
+else {
   writeSlots(PRESET_SPELLS['ember-ward'].slots);
   compileBase();
+}
+
+// ------------------------------------------------------------ Skapi: account, Spellbook, Hall of Sigils
+let profile = null;
+const thumbs = new Map(); // hash → SVG string
+function entryEl(item, { onOpen, onRemove, removeLabel }) {
+  const d = document.createElement('div');
+  d.className = 'entry'; d.tabIndex = 0; d.setAttribute('role', 'button');
+  d.title = `${item.name}\n${item.effects.join(' · ')}\n${item.hash}${item.by ? `\nby ${item.by}` : ''}`;
+  const art = document.createElement('div');
+  art.className = 'art pending';
+  d.appendChild(art);
+  d.insertAdjacentHTML('beforeend', `<div class="lbl">${esc(item.name.replace(/^Sigil of /, ''))}<br /><i>${esc(item.symmetry)} · ${esc(item.form)}${item.by ? ` · ${esc(item.by)}` : ''}</i></div>`);
+  if (onRemove) {
+    const x = document.createElement('button');
+    x.className = 'x small'; x.textContent = '✕'; x.title = removeLabel; x.setAttribute('aria-label', removeLabel);
+    x.addEventListener('click', (e) => { e.stopPropagation(); onRemove(item, d); });
+    d.appendChild(x);
+  }
+  d.addEventListener('click', () => onOpen(item));
+  d.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(item); } });
+  const paint = (svg) => { art.classList.remove('pending'); art.innerHTML = svg; };
+  if (thumbs.has(item.hash)) paint(thumbs.get(item.hash));
+  else gridC.compile(item.genome, { solid: false }).then((r) => { const svg = sigilSVG(r, { bridges: false }); thumbs.set(item.hash, svg); paint(svg); }).catch(() => paint('<span class="hint">?</span>'));
+  return d;
+}
+
+function showAccount() {
+  const signedIn = !!profile;
+  $('account-who').innerHTML = signedIn
+    ? `Signed in as <b>${esc(profile.name || profile.email || 'a mage')}</b>`
+    : 'Sign in to keep a Spellbook and to visit the Hall.';
+  $('btn-account').textContent = signedIn ? 'Sign out' : 'Sign in';
+  $('book-actions').hidden = !signedIn;
+  if (!signedIn) $('spellbook').innerHTML = '';
+}
+
+async function refreshSpellbook() {
+  if (!profile) return;
+  const el = $('spellbook');
+  try {
+    const { items } = await cloud.listSpellbook();
+    el.innerHTML = '';
+    if (!items.length) el.innerHTML = '<div class="empty">Your Spellbook is empty. Save a sigil from the Forge.</div>';
+    for (const it of items) {
+      el.appendChild(entryEl(it, {
+        onOpen: (x) => { adopt(x.genome); toast(`Opened ${x.name}`); },
+        removeLabel: 'Remove from Spellbook',
+        onRemove: async (x, node) => {
+          if (!confirm(`Remove “${x.name}” from your Spellbook?`)) return;
+          try { await cloud.removeRecord(x.record_id); node.remove(); toast('Removed'); } catch (e) { toast(cloud.errorMessage(e)); }
+        },
+      }));
+    }
+  } catch (e) { el.innerHTML = `<div class="empty">Couldn't open the Spellbook: ${esc(cloud.errorMessage(e))}</div>`; }
+}
+
+let hallEnd = false, hallLoading = false;
+async function loadHall(more = false) {
+  if (hallLoading) return;
+  hallLoading = true;
+  const el = $('hall-list');
+  if (!more) el.innerHTML = '<div class="empty">Opening the Hall…</div>';
+  try {
+    const { items, end } = await cloud.listHall({ more });
+    if (!more) el.innerHTML = '';
+    hallEnd = end;
+    if (!items.length && !more) el.innerHTML = '<div class="empty">The Hall is empty. Be the first to publish a sigil.</div>';
+    for (const it of items) {
+      const mine = profile && it.user_id === profile.user_id;
+      el.appendChild(entryEl(it, {
+        onOpen: (x) => { $('hall').close(); adopt(x.genome); toast(`${x.name} is in your crucible`); },
+        removeLabel: 'Withdraw from the Hall',
+        onRemove: mine ? async (x, node) => {
+          if (!confirm(`Withdraw “${x.name}” from the Hall?`)) return;
+          try { await cloud.removeRecord(x.record_id); node.remove(); toast('Withdrawn'); } catch (e) { toast(cloud.errorMessage(e)); }
+        } : null,
+      }));
+    }
+  } catch (e) { el.innerHTML = `<div class="empty">The Hall is out of reach: ${esc(cloud.errorMessage(e))}</div>`; }
+  $('btn-hall-more').hidden = hallEnd;
+  hallLoading = false;
+}
+
+function authTab(name) {
+  for (const b of $('auth').querySelectorAll('[data-tab]')) b.classList.toggle('on', b.dataset.tab === name);
+  for (const f of $('auth').querySelectorAll('form')) f.hidden = f.dataset.pane !== name;
+  $('auth-err').textContent = '';
+}
+async function authSubmit(e, fn) {
+  e.preventDefault();
+  const f = e.target, btn = f.querySelector('button[type=submit]');
+  btn.disabled = true; $('auth-err').textContent = '';
+  try { await fn(Object.fromEntries(new FormData(f))); } catch (err) { $('auth-err').textContent = cloud.errorMessage(err); }
+  btn.disabled = false;
+}
+let openHallAfterSignIn = false;
+function signedIn(p) {
+  profile = p;
+  showAccount();
+  if (p) {
+    $('auth').close(); toast(`Welcome, ${p.name || 'mage'}`); refreshSpellbook();
+    if (openHallAfterSignIn) { openHallAfterSignIn = false; $('hall').showModal(); loadHall(false); }
+  }
+}
+
+function wireCloud() {
+  cloud.onUser((p) => {
+    const was = profile && profile.user_id;
+    profile = p;
+    showAccount();
+    if (p && p.user_id !== was) refreshSpellbook();
+  });
+  $('auth').addEventListener('close', () => { $('auth-note').hidden = true; });
+  $('btn-account').addEventListener('click', async () => {
+    if (profile) { await cloud.logout().catch((e) => toast(cloud.errorMessage(e))); profile = null; showAccount(); toast('Signed out'); return; }
+    openHallAfterSignIn = false;
+    authTab('login');
+    $('auth').showModal();
+  });
+  $('btn-auth-close').addEventListener('click', () => $('auth').close());
+  for (const b of $('auth').querySelectorAll('[data-tab]')) b.addEventListener('click', () => authTab(b.dataset.tab));
+  $('form-login').addEventListener('submit', (e) => authSubmit(e, async (v) => signedIn(await cloud.login(v.email, v.password))));
+  $('form-signup').addEventListener('submit', (e) => authSubmit(e, async (v) => signedIn(await cloud.signup(v.email, v.password, v.name.trim()))));
+  $('btn-send-code').addEventListener('click', async () => {
+    const email = $('form-forgot').email.value.trim();
+    if (!email) { $('auth-err').textContent = 'Enter your e-mail first.'; return; }
+    try { await cloud.forgotPassword(email); toast('If that account exists, a code is on its way.'); } catch (err) { $('auth-err').textContent = cloud.errorMessage(err); }
+  });
+  $('form-forgot').addEventListener('submit', (e) => authSubmit(e, async (v) => {
+    await cloud.resetPassword(v.email, v.code, v.new_password);
+    toast('Password changed. Sign in with the new one.');
+    authTab('login');
+  }));
+  const needForged = (fn) => async () => {
+    if (!state.current) return toast('Still forging…');
+    if (!profile) { authTab('login'); $('auth').showModal(); return; }
+    try { await fn(state.current.genome); } catch (e) { toast(cloud.errorMessage(e)); }
+  };
+  $('btn-save').addEventListener('click', needForged(async (g) => { await cloud.saveToSpellbook(g); toast('Saved to your Spellbook'); refreshSpellbook(); }));
+  $('btn-publish').addEventListener('click', needForged(async (g) => {
+    if (!confirm(`Publish “${g.meta.name}” to the public Hall of Sigils? Anyone can see it (with your mage name: ${profile.name || 'none'}). You can withdraw it later.`)) return;
+    await cloud.publishToHall(g, profile.name || '');
+    toast('Published to the Hall');
+  }));
+  $('btn-hall').addEventListener('click', () => {
+    // The Skapi project only answers signed-in readers, so the Hall is for members.
+    if (!profile) { openHallAfterSignIn = true; authTab('login'); $('auth-err').textContent = ''; $('auth-note').hidden = false; $('auth').showModal(); return; }
+    $('hall').showModal(); loadHall(false);
+  });
+  $('btn-hall-close').addEventListener('click', () => $('hall').close());
+  $('btn-hall-more').addEventListener('click', () => loadHall(true));
+  // Only wake Skapi on load if this browser has signed in before.
+  if (cloud.seenBefore()) cloud.currentProfile().then((p) => { profile = p; showAccount(); if (p) refreshSpellbook(); });
 }
 
 // ------------------------------------------------------------ agent API
@@ -477,6 +640,7 @@ window.spellforge = {
   get genome() { return state.current && state.current.genome; },
   get telemetry() { return state.current && state.current.telemetry; },
   get grid() { return state.grid.map((c) => c.genome); },
+  version: VERSION,
   effects: EFFECTS,
   presets: PRESET_SPELLS,
   /** Compile 1–3 effects ({id}|{text}) to a Gen-0 crucible; resolves with the telemetry. */

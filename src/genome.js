@@ -5,7 +5,7 @@
 // The genome describes ONE WEDGE of the sigil plus a symmetry group; the
 // compiler (sigil.js) lifts that wedge to the whole disc. So mutation can do
 // anything inside the wedge and the declared symmetry still can't break.
-import { rng, hash32, clamp } from './geom.js?v=1.0.0';
+import { rng, hash32, clamp } from './geom.js?v=1.1.0';
 
 export const SCHEMA = 'sigil-genome/1';
 export const DOMAINS = ['ward', 'kinetic', 'focus', 'entropy'];

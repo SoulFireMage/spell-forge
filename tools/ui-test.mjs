@@ -16,10 +16,24 @@ mkdirSync('snapshots', { recursive: true });
 let failures = 0;
 const ok = (c, m) => { if (!c) { failures++; console.log(`  ✗ ${m}`); } else console.log(`  ✓ ${m}`); };
 const T = { timeout: 90000 };
+// A stand-in Skapi for the account flows, so the test never writes to the real project.
+const FAKE_SKAPI = `window.Skapi = class {
+  constructor(id, o) { this.cb = o && o.eventListener && o.eventListener.onUserUpdate; this.user = null; this.db = []; Promise.resolve().then(() => this.cb && this.cb(null)); }
+  async getProfile() { return this.user; }
+  async login({ email }) { this.user = { user_id: 'u1', email, name: 'Kat' }; this.cb && this.cb(this.user); return this.user; }
+  async signup(p) { return this.login(p); }
+  async logout() { this.user = null; this.cb && this.cb(null); }
+  async postRecord(data, cfg) { const rec = { record_id: 'r' + this.db.length, user_id: this.user.user_id, uploaded: Date.now(), data, table: cfg.table }; this.db.push(rec); return rec; }
+  async getRecords(q) { return { list: this.db.filter((x) => x.table.name === q.table.name && x.table.access_group === q.table.access_group).reverse(), endOfList: true }; }
+  async deleteRecords({ record_id }) { this.db = this.db.filter((x) => x.record_id !== record_id); return 'SUCCESS'; }
+};`;
+
 
 async function run(viewport, tag) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
+  page.on('dialog', (d) => d.accept());
+  if (tag === 'desktop') await page.route('**/skapi-js@*/dist/skapi.js', (route) => route.fulfill({ contentType: 'text/javascript', body: FAKE_SKAPI }));
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -53,6 +67,34 @@ async function run(viewport, tag) {
     await page.screenshot({ path: `snapshots/ui-${tag}-2.png` });
     const script = await page.evaluate(() => window.spellforge.manifoldCadScript());
     ok(script.includes('compileSigil') && script.includes("from 'manifold-3d/manifoldCAD'"), `${tag}: ManifoldCAD script built`);
+
+    // Skapi (mocked): sign in, save, publish, Hall, open, sign out
+    await page.click('#btn-account');
+    await page.fill('#form-login input[name=email]', 'kat@example.com');
+    await page.fill('#form-login input[name=password]', 'secret123');
+    await page.click('#form-login button[type=submit]');
+    await page.waitForFunction(() => /Kat/.test(document.querySelector('#account-who').textContent), null, T);
+    ok(true, `${tag}: signed in (mock Skapi)`);
+    await page.click('#btn-save');
+    await page.waitForFunction(() => document.querySelectorAll('#spellbook .entry svg').length === 1, null, T);
+    ok(true, `${tag}: saved to Spellbook, thumbnail drawn`);
+    await page.click('#btn-publish');
+    await page.click('#btn-hall');
+    await page.waitForFunction(() => document.querySelectorAll('#hall-list .entry').length === 1, null, T);
+    ok(!!(await page.$('#hall-list .entry .x')), `${tag}: own Hall entry can be withdrawn`);
+    await page.click('#hall-list .entry');
+    ok(!(await page.$eval('#hall', (d) => d.open)), `${tag}: Hall closes after opening a sigil`);
+    await page.click('#btn-account');
+    await page.waitForFunction(() => document.querySelector('#btn-account').textContent === 'Sign in', null, T);
+    ok(true, `${tag}: signed out`);
+  } else {
+    // signed out, the Hall asks you to sign in first
+    await page.click('#btn-hall');
+    ok(await page.$eval('#auth', (d) => d.open) && !(await page.$eval('#auth-note', (e) => e.hidden)), `${tag}: Hall asks a signed-out visitor to sign in`);
+    await page.click('#btn-auth-close');
+    // the live Skapi project is reachable with this project ID (read-only probe; it answers that reads need sign-in)
+    const probe = await page.evaluate(async () => { const c = await import('./src/cloud.js?v=' + window.spellforge.version); try { await c.listHall(); return 'listed'; } catch (e) { return c.errorMessage(e); } });
+    ok(/sign in|listed/i.test(probe), `${tag}: live Skapi project answered: ${probe}`);
   }
   ok(errors.length === 0, `${tag}: no console errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();

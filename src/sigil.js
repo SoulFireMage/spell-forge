@@ -29,9 +29,9 @@
 //   6. Housing: bail, plinth, medallion / coin plate.
 //   7. Extrude tiers from Z = 0, union, telemetry. Because every tier starts
 //      at Z = 0, the solid is connected iff its 2D footprint is.
-import { Scope, TAU, clamp, lerp, rng, ccw, rot, rotPoly, mirrorPoly, polar, circlePoly, strokePath, sample, closestPair } from './geom.js?v=1.0.0';
-import { normalize, hashGenome } from './genome.js?v=1.0.0';
-import { VERSION } from './version.js?v=1.0.0';
+import { Scope, TAU, clamp, lerp, rng, ccw, rot, rotPoly, mirrorPoly, polar, circlePoly, strokePath, sample, closestPair } from './geom.js?v=1.1.0';
+import { normalize, hashGenome } from './genome.js?v=1.1.0';
+import { VERSION } from './version.js?v=1.1.0';
 
 export const BAIL = { id: 4.5, wall: 2.5 };      // requirements §2 Stage 5
 export const PLA_DENSITY = 1.24;                  // g/cm³, for the mass estimate

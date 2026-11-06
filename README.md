@@ -5,7 +5,7 @@ fantastical effects and magical concepts. Not suitable for use in matters of
 national security, crime, crime detection, birth prevention, or serious
 healthcare. One's tongue should be firmly within one's cheek when using.
 
-**Live:** https://starship-whisperer.com/spell-forge/ (once Pages is enabled: Settings → Pages → `main` / root)
+**Live:** https://starship-whisperer.com/spell-forge/
 
 ## How it works
 
@@ -31,6 +31,13 @@ healthcare. One's tongue should be firmly within one's cheek when using.
 5. **Export.** A watertight STL (or 3MF with coloured tiers), a layered SVG, the
    genome, a share link, a spell card with the inscription and the
    filament-swap heights, or a ManifoldCAD script.
+
+6. **Keep and share (optional account).** Sign in to save sigils to a private
+   **Spellbook** and to visit the **Hall of Sigils**, where members publish
+   sigils for others to breed from. Accounts are kept by
+   [Skapi](https://www.skapi.com) in the same project as Starship Whisperer,
+   so one login works on both. Without an account nothing changes, and Skapi
+   isn't contacted at all.
 
 ## Built solid
 
@@ -81,10 +88,11 @@ node tools/version.mjs         # bump the release version (stamped into every mo
 
 ## Deploying on GitHub Pages
 
-Settings → Pages → **Build and deployment: Deploy from a branch** → `main` /
-`(root)`. No build step or Actions workflow. `.nojekyll` stops Jekyll from
-touching the files. three.js, manifold-3d and (only if the Oracle is used) the
-Anthropic SDK load from jsDelivr at pinned versions.
+Pages is set to deploy from GitHub Actions: `.github/workflows/deploy.yml`
+runs `npm test` on every push to `main`, then publishes `index.html`, `src/`
+and `version.json` as they are (there's no build step). three.js, manifold-3d
+and, only when used, the Skapi SDK and the Anthropic SDK load from jsDelivr at
+pinned versions.
 
 ## Layout
 
@@ -97,6 +105,7 @@ Anthropic SDK load from jsDelivr at pinned versions.
 | `src/geom.js` | Polygons, strokes, seeded RNG, WASM `Scope` |
 | `src/export.js` | SVG, binary STL, 3MF |
 | `src/llm.js` | The optional Oracle (Claude, bring-your-own-key) |
+| `src/cloud.js` | Skapi: accounts, private Spellbook, members' Hall of Sigils (tables `spellforge_*`) |
 | `src/viewer.js` | Three.js Forge view |
 | `src/worker.js` | Compiler off the main thread |
 | `src/manifoldcad.js` | Self-contained ManifoldCAD script from the real sources |

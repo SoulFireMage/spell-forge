@@ -220,6 +220,29 @@ showing; `snapshot()`, `view('top'|'tilt'|'side'|'low')`, `manifoldCadScript()`;
 Agent loop: bind → read telemetry → breed → reject children with warnings →
 snapshot survivors → choose → repeat. Record intent in `meta.lineage`.
 
+### 8b. Accounts, Spellbook and the Hall (`src/cloud.js`, Skapi)
+
+Optional, and outside the compiler: nothing in §1–7 depends on it.
+
+- Project: the shared Starship Whisperer Skapi project (`SKAPI_PROJECT_ID`),
+  the owner's choice, so one login works on both sites. Tables are prefixed
+  `spellforge_` so neither app reads the other's data.
+- SDK: `skapi-js@2.2.28` UMD build from jsDelivr, injected only on first use.
+  Skapi isn't contacted until someone signs in, or a browser that signed in
+  before returns (`localStorage['spellforge.cloud']`).
+- `spellforge_spellbook` (access group `private`): your saved sigils.
+- `spellforge_hall` (access group `public`): published sigils, withdrawable by
+  their author. The project only answers **signed-in** readers (a project-wide
+  setting it shares with Starship Whisperer), so the Hall is members-only; the
+  UI asks a signed-out visitor to sign in first.
+- Record data (< 2 KB): `{ v: 1, name, hash, symmetry, form, effects[], by?, g }`
+  where `g` is the share-link encoding of the genome. `fromRecord()` decodes
+  through `normalize()`, so a malformed or hostile record can't produce a bad
+  genome; names and labels are clipped and HTML-escaped before display.
+- `tools/ui-test.mjs` drives sign-in → save → publish → Hall → open → sign out
+  against a stand-in Skapi (it never writes to the real project), and probes the
+  live project read-only.
+
 **WASM hygiene** is as in the Drydock: every handle through `Scope.k()`, and
 `npm test` instruments the bindings and fails on any leak (it found two
 during development).
